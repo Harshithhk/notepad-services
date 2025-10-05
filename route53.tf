@@ -1,13 +1,14 @@
-# Gets your existing Route 53 hosted zone for "domain.com"
 data "aws_route53_zone" "default" {
   name         = var.root_domain_name
   private_zone = false
 }
 
-# Creates the A record for "subdomain.domain.com" pointing to CloudFront
-resource "aws_route53_record" "www" {
+# This will now create a record for each domain name in your list
+resource "aws_route53_record" "site_records" {
+  for_each = toset(var.full_domain_names) 
+
   zone_id = data.aws_route53_zone.default.zone_id
-  name    = "${var.subdomain}.${var.root_domain_name}"
+  name    = each.value 
   type    = "A"
 
   alias {

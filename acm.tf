@@ -1,7 +1,13 @@
 # Requests the SSL certificate for your custom domain
 resource "aws_acm_certificate" "default" {
-  provider          = aws.us-east-1 # CloudFront requires certs in us-east-1
-  domain_name       = "${var.subdomain}.${var.root_domain_name}"
+  provider = aws.us-east-1
+  
+  # Set the primary domain name to the first in the list
+  domain_name = var.full_domain_names[0] 
+  
+  # Make the certificate valid for ALL domains in the list
+  subject_alternative_names = var.full_domain_names 
+
   validation_method = "DNS"
 
   lifecycle {

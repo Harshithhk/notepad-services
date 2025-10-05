@@ -4,11 +4,17 @@ variable "root_domain_name" {
   default     = "harshithkelkar.com"
 }
 
-variable "subdomain" {
-  type        = string
-  description = "The subdomain to use, e.g., www"
-  default     = "www"
+# This new variable will hold all the domains you want to use
+variable "full_domain_names" {
+  type        = list(string)
+  description = "A list of full domain names for the website."
+  default     = [
+    "notepad-minus-minus.harshithkelkar.com",
+    "www.notepad-minus-minus.harshithkelkar.com"
+  ]
 }
+
+# The old "subdomain" variable is no longer needed
 
 variable "region" {
   type    = string
