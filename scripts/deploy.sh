@@ -42,6 +42,9 @@ terraform plan -var-file="$TF_VARS_FILE"
 echo "Applying Terraform configuration..."
 terraform apply -var-file="$TF_VARS_FILE" --auto-approve
 
+# Get the S3 bucket name directly from Terraform output
+BUCKET_NAME=$(terraform output -raw s3_bucket_name)
+
 # Sync static site files
 echo "Uploading static site files to S3 bucket: www.$BUCKET_NAME..."
 aws s3 sync ./static-files/ s3://www.$BUCKET_NAME \
