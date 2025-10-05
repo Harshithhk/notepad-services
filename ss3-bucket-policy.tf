@@ -1,38 +1,31 @@
-resource "aws_s3_bucket_ownership_controls" "s3_bucket_acl_ownership" {
-  bucket = data.aws_s3_bucket.selected-bucket.id
-  rule {
-    object_ownership = "BucketOwnerPreferred"
-  }
-  depends_on = [aws_s3_bucket_public_access_block.example]
-}
+# This resource is no longer needed as the policy will handle permissions
+# resource "aws_s3_bucket_public_access_block" "example" { ... }
 
-resource "aws_s3_bucket_public_access_block" "example" {
-  bucket = data.aws_s3_bucket.selected-bucket.id
-
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
-}
+# This resource is also not needed with OAC
+# resource "aws_s3_bucket_ownership_controls" "s3_bucket_acl_ownership" { ... }
 
 resource "aws_s3_bucket_policy" "bucket-policy" {
   bucket = data.aws_s3_bucket.selected-bucket.id
   policy = data.aws_iam_policy_document.iam-policy-1.json
 }
+
+# Updated IAM policy to only allow access from CloudFront
 data "aws_iam_policy_document" "iam-policy-1" {
   statement {
-    sid    = "AllowPublicRead"
+    sid    = "AllowCloudFront"
     effect = "Allow"
-resources = [
-      "arn:aws:s3:::www.${var.bucket_name}",
-      "arn:aws:s3:::www.${var.bucket_name}/*",
-    ]
-actions = ["S3:GetObject"]
-principals {
-      type        = "*"
-      identifiers = ["*"]
+    actions = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.bucket-1.arn}/*"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.s3_distribution.arn]
     }
   }
-
-  depends_on = [aws_s3_bucket_public_access_block.example]
 }

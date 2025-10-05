@@ -7,8 +7,12 @@ terraform {
   }
 }
 
-
 provider "aws" {
   region  = var.region
-  # profile = var.profile
+}
+
+# Provider for us-east-1 region, required for ACM certificate for CloudFront
+provider "aws" {
+  alias  = "us-east-1"
+  region = "us-east-1"
 }
