@@ -1,9 +1,12 @@
 // src/image-interpreter.js
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import Anthropic from "@anthropic-ai/sdk";
-import mongoose from "mongoose";
 import Note from "./models/notes.js";
+import { getEmbedding } from "./encoder.js";
 
+/**
+ * Convert readable stream → Buffer
+ */
 function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -14,17 +17,50 @@ function streamToBuffer(stream) {
 }
 
 /**
- * @param {string} s3ObjectUrl
- * @param {string} noteId
+ * Flatten interpretation JSON → deterministic text
+ * (critical for stable embeddings)
  */
-export async function interpretImageFromS3(s3ObjectUrl, noteId) {
-  if (!s3ObjectUrl) {
-    throw new Error("s3ObjectUrl is required");
+function interpretationToText(interpretation) {
+  const parts = [];
+
+  if (interpretation.todos?.length) {
+    parts.push("Todo list:");
+    interpretation.todos.forEach((t) => {
+      const status = t.checkbox_checked ? "completed" : "pending";
+      parts.push(`- TODO (${status}): ${t.task}`);
+    });
+  } else {
+    parts.push("Todo list: none");
   }
 
-  if (!mongoose.Types.ObjectId.isValid(noteId)) {
-    throw new Error(`Invalid noteId: ${noteId}`);
+  if (interpretation.quote_of_the_day) {
+    parts.push(`Quote of the day: "${interpretation.quote_of_the_day}"`);
+  } else {
+    parts.push("Quote of the day: none");
   }
+
+  if (interpretation.written_and_drawn_notes_summary?.length) {
+    parts.push("Whiteboard notes:");
+    interpretation.written_and_drawn_notes_summary.forEach((n) =>
+      parts.push(`- ${n}`)
+    );
+  }
+
+  if (interpretation.sticky_notes_summary?.length) {
+    parts.push("Sticky notes:");
+    interpretation.sticky_notes_summary.forEach((n) => parts.push(`- ${n}`));
+  }
+
+  return parts.join("\n");
+}
+
+/**
+ * @param {string} s3ObjectUrl - s3://bucket/key
+ * @param {string} noteId     - custom noteId field (NOT Mongo _id)
+ */
+export async function interpretImageFromS3(s3ObjectUrl, noteId) {
+  if (!s3ObjectUrl) throw new Error("s3ObjectUrl is required");
+  if (!noteId) throw new Error("noteId is required");
 
   const match = s3ObjectUrl.match(/^s3:\/\/([^/]+)\/(.+)$/);
   if (!match) {
@@ -37,16 +73,12 @@ export async function interpretImageFromS3(s3ObjectUrl, noteId) {
 
   const s3 = new S3Client({});
   const s3Response = await s3.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-    })
+    new GetObjectCommand({ Bucket: bucket, Key: key })
   );
 
   const imageBuffer = await streamToBuffer(s3Response.Body);
   const imageBase64 = imageBuffer.toString("base64");
 
-  // Ensure secret exists (DO NOT log it)
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is missing");
   }
@@ -113,42 +145,42 @@ Schema:
   });
 
   const raw = claudeResponse.content
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
+    .filter((p) => p.type === "text")
+    .map((p) => p.text)
     .join("")
     .trim();
 
   let parsed;
   try {
     parsed = JSON.parse(raw);
-  } catch (err) {
+  } catch {
     console.error("Claude returned invalid JSON:", raw);
     throw new Error("Claude JSON parsing failed");
   }
 
-  console.log("Writing interpretation to MongoDB");
+  console.log("Generating embeddings...");
+  const embeddingText = interpretationToText(parsed);
+  const embedding = await getEmbedding(embeddingText, { isQuery: false });
 
-  const result = await Note.findByIdAndUpdate(
-    noteId,
+  console.log("Writing interpretation + embedding to MongoDB");
+
+  const result = await Note.findOneAndUpdate(
+    { noteId }, // ✅ custom field
     {
-      interpretation: parsed,
-      interpretationCompleted: true,
+      $set: {
+        interpretation: parsed,
+        interpretationCompleted: true,
+        embedding,
+      },
     },
-    {
-      new: true,
-      runValidators: true,
-    }
+    { new: true }
   );
 
   if (!result) {
-    throw new Error(`Note not found for ID ${noteId}`);
+    throw new Error(`Note not found for noteId ${noteId}`);
   }
 
-  console.log("Interpretation completed", {
-    noteId,
-    s3ObjectUrl,
-  });
-  
+  console.log("Interpretation completed", { noteId, s3ObjectUrl });
 
   return {
     noteId,
