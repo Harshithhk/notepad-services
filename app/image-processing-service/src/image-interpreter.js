@@ -1,12 +1,9 @@
 // src/image-interpreter.js
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import Anthropic from "@anthropic-ai/sdk";
+import mongoose from "mongoose";
 import Note from "./models/notes.js";
-import { getEmbedding } from "./encoder.js";
 
-/**
- * Convert readable stream → Buffer
- */
 function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -17,67 +14,17 @@ function streamToBuffer(stream) {
 }
 
 /**
- * Flatten interpretation → text (for embeddings)
- */
-function interpretationToText(interpretation) {
-  const parts = [];
-
-  if (interpretation.todos?.length) {
-    parts.push("Todo list:");
-    interpretation.todos.forEach((t) => {
-      const status = t.checkbox_checked ? "completed" : "pending";
-      parts.push(`- TODO (${status}): ${t.task}`);
-    });
-  }
-
-  if (interpretation.quote_of_the_day) {
-    parts.push(`Quote of the day: "${interpretation.quote_of_the_day}"`);
-  }
-
-  if (interpretation.written_and_drawn_notes_summary?.length) {
-    parts.push("Whiteboard notes:");
-    interpretation.written_and_drawn_notes_summary.forEach((n) =>
-      parts.push(`- ${n}`)
-    );
-  }
-
-  if (interpretation.sticky_notes_summary?.length) {
-    parts.push("Sticky notes:");
-    interpretation.sticky_notes_summary.forEach((n) => parts.push(`- ${n}`));
-  }
-
-  return parts.join("\n");
-}
-
-/**
- * Generate title + summary from interpretation
- */
-function deriveTitleAndSummary(interpretation) {
-  const todos = interpretation.todos || [];
-
-  const title =
-    todos.length > 0
-      ? todos
-          .slice(0, 2)
-          .map((t) => t.task)
-          .join(" • ")
-      : "Whiteboard Note";
-
-  const summary =
-    todos.length > 0
-      ? `Whiteboard todo list with ${todos.length} items`
-      : "Whiteboard notes and drawings";
-
-  return { title, summary };
-}
-
-/**
  * @param {string} s3ObjectUrl
- * @param {string} noteId   (custom noteId field, NOT Mongo _id)
+ * @param {string} noteId
  */
 export async function interpretImageFromS3(s3ObjectUrl, noteId) {
-  if (!s3ObjectUrl) throw new Error("s3ObjectUrl is required");
-  if (!noteId) throw new Error("noteId is required");
+  if (!s3ObjectUrl) {
+    throw new Error("s3ObjectUrl is required");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(noteId)) {
+    throw new Error(`Invalid noteId: ${noteId}`);
+  }
 
   const match = s3ObjectUrl.match(/^s3:\/\/([^/]+)\/(.+)$/);
   if (!match) {
@@ -90,12 +37,16 @@ export async function interpretImageFromS3(s3ObjectUrl, noteId) {
 
   const s3 = new S3Client({});
   const s3Response = await s3.send(
-    new GetObjectCommand({ Bucket: bucket, Key: key })
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    })
   );
 
   const imageBuffer = await streamToBuffer(s3Response.Body);
   const imageBase64 = imageBuffer.toString("base64");
 
+  // Ensure secret exists (DO NOT log it)
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is missing");
   }
@@ -113,6 +64,20 @@ Rules:
 - Only output JSON
 - No markdown
 - Response must start with "{"
+
+Schema:
+{
+  "todos": [
+    {
+      "deadline": "string | null | infinity",
+      "task": "string",
+      "checkbox_checked": true | false
+    }
+  ],
+  "quote_of_the_day": "string | null",
+  "written_and_drawn_notes_summary": ["string"],
+  "sticky_notes_summary": ["string"]
+}
 `;
 
   console.log("Calling Claude Vision API...");
@@ -136,6 +101,10 @@ Rules:
           },
           {
             type: "text",
+            text: "Extract structured information from this whiteboard image.",
+          },
+          {
+            type: "text",
             text: JSON_PROMPT,
           },
         ],
@@ -144,48 +113,35 @@ Rules:
   });
 
   const raw = claudeResponse.content
-    .filter((p) => p.type === "text")
-    .map((p) => p.text)
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
     .join("")
     .trim();
 
   let parsed;
   try {
     parsed = JSON.parse(raw);
-  } catch {
+  } catch (err) {
     console.error("Claude returned invalid JSON:", raw);
     throw new Error("Claude JSON parsing failed");
   }
 
-  console.log("Generating embeddings...");
-  const embeddingText = interpretationToText(parsed);
-  const embedding = await getEmbedding(embeddingText, { isQuery: false });
-
-  const { title, summary } = deriveTitleAndSummary(parsed);
-
   console.log("Writing interpretation to MongoDB");
 
-  const result = await Note.findOneAndUpdate(
-    { noteId },
+  const result = await Note.findByIdAndUpdate(
+    noteId,
     {
-      $set: {
-        title,
-        summary,
-        interpretation: parsed,
-        interpretationCompleted: true,
-        embedding,
-        metadata: {
-          hasTodos: parsed.todos?.length > 0,
-          todoCount: parsed.todos?.length || 0,
-          hasStickyNotes: parsed.sticky_notes_summary?.length > 0,
-        },
-      },
+      interpretation: parsed,
+      interpretationCompleted: true,
     },
-    { new: true }
+    {
+      new: true,
+      runValidators: true,
+    }
   );
 
   if (!result) {
-    throw new Error(`Note not found for noteId ${noteId}`);
+    throw new Error(`Note not found for ID ${noteId}`);
   }
 
   console.log("Interpretation completed", {
