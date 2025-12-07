@@ -8,8 +8,13 @@ import { S3Client } from "@aws-sdk/client-s3";
 
 export const imageUpload = async (req, res) => {
     try {
-        const s3 = new S3Client({ region: "us-east-1" });
-
+        const s3 = new S3Client({
+            region: process.env.AWS_REGION,
+            credentials: {
+                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+            }
+        });
         const { fileType } = req.body;
 
         if (!fileType) {
@@ -19,7 +24,7 @@ export const imageUpload = async (req, res) => {
         const fileKey = `uploads/${uuidv4()}`;
 
         const command = new PutObjectCommand({
-            Bucket: "image-upload-clean-notepad",
+            Bucket: process.env.S3_BUCKET_NAME,
             Key: fileKey,
             // ContentType: fileType
         });
@@ -27,7 +32,7 @@ export const imageUpload = async (req, res) => {
             expiresIn: 300
         });
 
-        const fileUrl = `https://image-upload-clean-notepad.s3.us-east-1.amazonaws.com/${fileKey}`;
+        const fileUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
 
         res.json({
             uploadUrl,
