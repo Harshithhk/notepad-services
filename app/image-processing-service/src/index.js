@@ -1,4 +1,5 @@
 // src/index.js
+import dbConnect from "./config/db.js";
 import { interpretImageFromS3 } from "./image-interpreter.js";
 
 async function main() {
@@ -20,12 +21,13 @@ async function main() {
     if (!imageUrl) {
       throw new Error("Payload missing required field: imageUrl");
     }
+    await dbConnect();
 
-    const result = await interpretImageFromS3(imageUrl);
+    const result = await interpretImageFromS3(imageUrl, noteId);
 
     const output = {
       noteId: noteId || null,
-      ...result
+      ...result,
     };
 
     // Single clean JSON object to CloudWatch

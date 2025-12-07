@@ -1,6 +1,8 @@
 // src/image-interpreter.js
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import Anthropic from "@anthropic-ai/sdk";
+import dbConnect from "./config/db";
+import notes from "./models/notes";
 
 function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
@@ -14,7 +16,7 @@ function streamToBuffer(stream) {
 /**
  * s3ObjectUrl: string like "s3://bucket/key"
  */
-export async function interpretImageFromS3(s3ObjectUrl) {
+export async function interpretImageFromS3(s3ObjectUrl, noteId) {
   if (!s3ObjectUrl) {
     throw new Error("s3ObjectUrl is required");
   }
@@ -106,6 +108,8 @@ Schema:
     .trim();
 
   const parsed = JSON.parse(raw);
+
+  notes.findByIdAndUpdate(noteId, { interpretation: parsed });
 
   console.log({ s3_object: s3ObjectUrl, interpretation: parsed });
 
