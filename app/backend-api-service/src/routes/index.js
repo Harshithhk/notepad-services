@@ -6,7 +6,8 @@ import {
     getNoteById,
     updateNote,
     deleteNote,
-    markInterpretationCompleted
+    markInterpretationCompleted,
+    searchNotesRag
 } from "../controllers/notesController.js";
 
 const router = Router();
@@ -23,5 +24,7 @@ router.get("/notes/:id", getNoteById);
 router.put("/notes/:id", updateNote);
 router.patch("/notes/:id/complete", markInterpretationCompleted);
 router.delete("/notes/:id", deleteNote);
+
+router.post("/notes/:userId/rag-search", searchNotesRag);
 
 export default router;

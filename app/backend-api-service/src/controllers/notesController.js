@@ -1,6 +1,8 @@
 import Note from "../models/notes.js";
 import { publishToSQS } from "../services/sqsService.js";
 
+import { ragSearchNotes } from "../services/ragService.js";
+
 
 const createNote = async (req, res) => {
     try {
@@ -119,6 +121,28 @@ const deleteNote = async (req, res) => {
     }
 };
 
+const searchNotesRag = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { query, cosineK, finalK } = req.body;
+
+    if (!query) return res.status(400).json({ error: "query is required" });
+
+    console.log(req.body)
+
+    // const results = await ragSearchNotes({
+    //   userId,
+    //   query,
+    //   cosineK: cosineK ?? 30,
+    //   finalK: finalK ?? 10,
+    // });
+
+    // return res.status(200).json({ results });
+  } catch (err) {
+    console.error("RAG search error:", err);
+    return res.status(500).json({ error: "Failed to search notes" });
+  }
+}
 
 export {
     createNote,
@@ -126,5 +150,6 @@ export {
     getNoteById,
     updateNote,
     deleteNote,
-    markInterpretationCompleted
+    markInterpretationCompleted,
+    searchNotesRag
 }
