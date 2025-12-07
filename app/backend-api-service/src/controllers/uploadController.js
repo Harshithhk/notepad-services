@@ -17,7 +17,7 @@ export const imageUpload = async (req, res) => {
     const fileKey = `uploads/${uuidv4()}`;
 
     const command = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
+      Bucket: "image-upload-clean-notepad",
       Key: fileKey,
       ContentType: fileType,
     });
@@ -26,7 +26,7 @@ export const imageUpload = async (req, res) => {
       expiresIn: 300,
     });
 
-    const fileUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+    const fileUrl = `https://image-upload-clean-notepad.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
 
     res.json({
       uploadUrl,
