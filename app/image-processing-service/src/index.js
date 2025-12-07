@@ -1,18 +1,49 @@
+// src/index.js
 import dotenv from "dotenv";
-import { interpretation } from "./interpreter.js";
-
 dotenv.config();
 
-const NOTE_ID = process.env.NOTE_ID;
-const IMAGE_URL = process.env.IMAGE_URL;
+import mongoose from "mongoose";
+import dbConnect from "./config/db.js";
+import { interpretImageFromS3 } from "./image-interpreter.js";
 
-const main = async () => {
-    console.log(`ECS Fargate Task started for note ${NOTE_ID}`);
+/**
+ * JOB_PAYLOAD is injected by Lambda when running the ECS task.
+ * Example:
+ * {
+ *   "noteId": "6934d6407b2d758386cf7483",
+ *   "s3ObjectUrl": "s3://bucket/key.jpg"
+ * }
+ */
+async function main() {
+  try {
+    console.log(" Image-processing ECS task started");
 
-    await interpretation(NOTE_ID, IMAGE_URL);
+    if (!process.env.JOB_PAYLOAD) {
+      throw new Error("JOB_PAYLOAD env var is missing");
+    }
 
-    console.log(`ECS Fargate Task finished for note ${NOTE_ID}`);
-};
+    const payload = JSON.parse(process.env.JOB_PAYLOAD);
+    const { noteId, s3ObjectUrl } = payload;
+
+    if (!noteId || !s3ObjectUrl) {
+      throw new Error("JOB_PAYLOAD must contain noteId and s3ObjectUrl");
+    }
+
+    // Connect to Mongo ONCE per container
+    await dbConnect();
+
+    // Run interpreter
+    await interpretImageFromS3(s3ObjectUrl, noteId);
+
+    console.log("Closing Mongodb connection");
+    await mongoose.connection.close();
+    console.log("Image-processing ECS task completed");
+
+    process.exit(0);
+  } catch (err) {
+    console.error(" Image-processing task failed:", err);
+    process.exit(1);
+  }
+}
 
 main();
-
