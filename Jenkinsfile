@@ -72,7 +72,12 @@ pipeline {
             [
               name: "frontend-service",
               path: "app/frontend-service",
-              ecr:  "frontend-service"
+              ecr:  "frontend-service",
+            buildArgs: """
+    --build-arg VITE_AUTH_API_URL=https://auth.notepad-minus-minus.harshithkelkar.com \
+    --build-arg VITE_BACKEND_API_URL=https://api.notepad-minus-minus.harshithkelkar.com
+  """.trim()
+
             ]
           ]
 
@@ -80,26 +85,23 @@ pipeline {
 
             def ecrRepo = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${svc.ecr}"
 
-            echo "Deploying ${svc.name}"
-
             dir(svc.path) {
-              sh """
-                docker build -t ${svc.name}:${IMAGE_TAG} .
+                sh """
+                docker build ${svc.buildArgs ?: ""} -t ${svc.name}:${IMAGE_TAG} .
                 docker tag ${svc.name}:${IMAGE_TAG} ${ecrRepo}:${IMAGE_TAG}
                 docker push ${ecrRepo}:${IMAGE_TAG}
-              """
+                """
             }
 
             sh """
-              aws ecs update-service \
+                aws ecs update-service \
                 --cluster ${ECS_CLUSTER} \
                 --service ${svc.name} \
                 --force-new-deployment \
                 --region ${AWS_REGION}
             """
+            }
 
-            echo "Deployment triggered for ${svc.name}"
-          }
         }
       }
     }
