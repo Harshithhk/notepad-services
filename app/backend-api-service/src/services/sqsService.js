@@ -5,7 +5,7 @@ const QUEUE_URL = process.env.SQS_QUEUE_URL;
 
 export const publishToSQS = async (note) => {
     const params = {
-        QueueUrl: 'https://sqs.us-east-1.amazonaws.com/831347845050/image-upload-events-queue',
+        QueueUrl: QUEUE_URL,
         MessageBody: JSON.stringify(note)
     };
 
