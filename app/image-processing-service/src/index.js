@@ -1,18 +1,40 @@
-import dotenv from "dotenv";
-import { interpretation } from "./interpreter.js";
+// src/index.js
+import { interpretImageFromS3 } from "./image-interpreter.js";
 
-dotenv.config();
+async function main() {
+  try {
+    const raw = process.env.JOB_PAYLOAD;
+    if (!raw) {
+      throw new Error("Missing JOB_PAYLOAD environment variable.");
+    }
 
-const NOTE_ID = process.env.NOTE_ID;
-const IMAGE_URL = process.env.IMAGE_URL;
+    let payload;
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      throw new Error("JOB_PAYLOAD is not valid JSON.");
+    }
 
-const main = async () => {
-    console.log(`ECS Fargate Task started for note ${NOTE_ID}`);
+    const { imageUrl, noteId } = payload;
 
-    await interpretation(NOTE_ID, IMAGE_URL);
+    if (!imageUrl) {
+      throw new Error("Payload missing required field: imageUrl");
+    }
 
-    console.log(`ECS Fargate Task finished for note ${NOTE_ID}`);
-};
+    const result = await interpretImageFromS3(imageUrl);
+
+    const output = {
+      noteId: noteId || null,
+      ...result
+    };
+
+    console.log(JSON.stringify(output, null, 2));
+    process.exit(0);
+
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+}
 
 main();
-
