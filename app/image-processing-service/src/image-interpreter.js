@@ -108,7 +108,14 @@ Schema:
 
   const parsed = JSON.parse(raw);
 
-  notes.findByIdAndUpdate(noteId, { interpretation: parsed });
+  await notes.findByIdAndUpdate(
+    noteId,
+    {
+      interpretation: parsed,
+      interpretationCompleted: true,
+    },
+    { new: true }
+  );
 
   console.log({ s3_object: s3ObjectUrl, interpretation: parsed });
 
