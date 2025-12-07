@@ -1,8 +1,7 @@
 // src/image-interpreter.js
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import Anthropic from "@anthropic-ai/sdk";
-import dbConnect from "./config/db";
-import notes from "./models/notes";
+import notes from "./models/notes.js";
 
 function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
