@@ -1,20 +1,58 @@
-import { useContext } from "react";
-import { AuthContext } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useRef } from "react";
+import Webcam from "react-webcam";
+import axios from "axios";
+import { Dialog } from "@headlessui/react";
 import mainLogo from '../assets/logo.png'
+import { noteService } from "../services/noteService";
 
 export default function Dashboard() {
-    const { user, setUser, logout } = useContext(AuthContext);
-    const navigate = useNavigate();
+    const [isOpen, setIsOpen] = useState(false);
+    const [mode, setMode] = useState(null);
+    const [image, setImage] = useState(null);
+    const webcamRef = useRef(null);
 
-    const handleLogout = () => {
-        logout();
-        navigate("/");
+    const handleCapture = () => {
+        const imageSrc = webcamRef.current.getScreenshot();
+        setImage(imageSrc);
     };
 
-    return (<>
-        <div class="flex flex-col">
-            {/* heder */}
+    const handleUploadFile = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const fileReader = new FileReader();
+        fileReader.onload = () => setImage(fileReader.result);
+        fileReader.readAsDataURL(file);
+    };
+
+    const handleUploadImageTos3 = async () => {
+        try {
+            const res = await noteService.uploadImageToS3(image);
+
+            console.log("Uploaded:", res.fileUrl);
+            alert("Uploaded Successfully!");
+
+            setIsOpen(false);
+            setImage(null);
+            setMode(null);
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
+
+
+    const closeDialog = () => {
+        setIsOpen(false);
+        setImage(null);
+        setMode(null);
+    };
+
+
+    return (
+        <div className="p-5">
+
+
             <div class="mx-auto w-fit px-4 sm:px-6 lg:px-8 pt-20 pb-16 text-center ">
                 <p class="mx-auto -mt-4 max-w-2xl text-lg tracking-tight flex items-center justify-center pb-4 text-slate-700 sm:mt-6">
                     <img class="h-28 bg-red-400 w-auto   rounded-2xl mr-2" src={mainLogo} alt="logo" />
@@ -35,6 +73,7 @@ export default function Dashboard() {
                 </p>
 
             </div>
+
             {/* table header */}
             <div class="max-w-screen-xl px-4 mx-auto lg:px-12 w-full">
                 <div class="relative bg-white shadow-md dark:bg-gray-800 sm:rounded-lg">
@@ -53,7 +92,7 @@ export default function Dashboard() {
                             </form>
                         </div>
                         <div class="flex flex-col items-stretch justify-end flex-shrink-0 w-full space-y-2 md:w-auto md:flex-row md:space-y-0 md:items-center md:space-x-3">
-                            <button type="button" class="flex items-center gap-2 justify-center px-4 py-2 text-sm font-medium text-white rounded-lg bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 focus:outline-none dark:focus:ring-primary-800">
+                            <button onClick={() => setIsOpen(true)} type="button" class="flex items-center gap-2 justify-center px-4 py-2 text-sm font-medium text-white rounded-lg bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 focus:outline-none dark:focus:ring-primary-800">
 
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">
                                     <path d="M12 9a3.75 3.75 0 1 0 0 7.5A3.75 3.75 0 0 0 12 9Z" />
@@ -128,6 +167,118 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
+
+            <Dialog open={isOpen} onClose={closeDialog} className="relative z-50">
+                <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+
+                <div className="fixed inset-0 flex items-center justify-center p-4">
+                    <Dialog.Panel className="bg-white rounded-lg shadow-xl p-2 py-4 w-full max-w-sm">
+                        <Dialog.Title className="text-lg font-bold text-gray-800 mb-4 text-center">
+                            Capture or Upload Image
+                        </Dialog.Title>
+
+                        {/* Initial Choice */}
+                        {!mode && !image && (
+
+
+                            <div class="flex items-center justify-center w-full">
+                                <div class="flex flex-col items-center justify-center w-full h-64 bg-neutral-secondary-medium border border-dashed border-default-strong rounded-base">
+                                    <div class="flex flex-col items-center justify-center text-body pt-5 pb-6">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-20 text-gray-400">
+                                            <path fill-rule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" clip-rule="evenodd" />
+                                        </svg>
+                                        <p class="mb-2 text-sm">Choose the button below to capture or upload</p>
+                                        <p class="text-xs mb-4">Max. File Size: <span class="font-semibold">30MB</span></p>
+
+                                        <div className="flex gap-3 mt-4">
+                                            <div onClick={() => setMode("camera")} className="flex gap-2 text-black shadow-lg hover:shadow-2xl hover:cursor-pointer hover:text-black  px-4 py-3 rounded-3xl">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
+                                                    <path d="M12 9a3.75 3.75 0 1 0 0 7.5A3.75 3.75 0 0 0 12 9Z" />
+                                                    <path fill-rule="evenodd" d="M9.344 3.071a49.52 49.52 0 0 1 5.312 0c.967.052 1.83.585 2.332 1.39l.821 1.317c.24.383.645.643 1.11.71.386.054.77.113 1.152.177 1.432.239 2.429 1.493 2.429 2.909V18a3 3 0 0 1-3 3h-15a3 3 0 0 1-3-3V9.574c0-1.416.997-2.67 2.429-2.909.382-.064.766-.123 1.151-.178a1.56 1.56 0 0 0 1.11-.71l.822-1.315a2.942 2.942 0 0 1 2.332-1.39ZM6.75 12.75a5.25 5.25 0 1 1 10.5 0 5.25 5.25 0 0 1-10.5 0Zm12-1.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" />
+                                                </svg>
+                                                Capture
+                                            </div>
+                                            <label className="flex gap-2 text-black shadow-lg hover:shadow-2xl hover:cursor-pointer hover:text-black px-4 py-3 rounded-3xl">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
+                                                    <path fill-rule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" clip-rule="evenodd" />
+                                                </svg>
+
+                                                Upload
+                                                <input type="file" accept="image/*" hidden onChange={handleUploadFile} />
+
+                                            </label>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+
+
+                        )}
+
+                        {mode === "camera" && !image && (
+                            <div className="flex flex-col ">
+                                <Webcam
+                                    ref={webcamRef}
+                                    screenshotFormat="image/jpeg"
+                                    videoConstraints={{ facingMode: "environment" }}
+                                    className="rounded-md w-full "
+                                />
+                                <button
+                                    onClick={handleCapture}
+                                    className="bg-primary-600 text-white px-4 py-2 rounded-lg mt-3"
+                                >
+                                    Capture Photo
+                                </button>
+                            </div>
+                        )}
+
+
+                        {image && (
+                            <div className="flex flex-col items-center">
+                                <img
+                                    src={image}
+                                    alt="preview"
+                                    className="w-full h-auto rounded-lg border shadow-md"
+                                />
+
+                                <div className="flex gap-3 mt-4">
+                                    <button
+                                        onClick={() => {
+                                            setImage(null);
+                                            setMode(null);
+                                        }}
+                                        className="flex gap-2 text-black shadow-lg hover:shadow-2xl hover:cursor-pointer hover:text-black  px-4 py-3 rounded-3xl">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
+                                            <path fill-rule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z" clip-rule="evenodd" />
+                                        </svg>
+
+                                        Retake
+                                    </button>
+
+                                    <button
+                                        onClick={handleUploadImageTos3}
+                                        className="flex gap-2 text-black shadow-lg hover:shadow-2xl hover:cursor-pointer hover:text-black  px-4 py-3 rounded-3xl">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
+                                            <path fill-rule="evenodd" d="M10.5 3.75a6 6 0 0 0-5.98 6.496A5.25 5.25 0 0 0 6.75 20.25H18a4.5 4.5 0 0 0 2.206-8.423 3.75 3.75 0 0 0-4.133-4.303A6.001 6.001 0 0 0 10.5 3.75Zm2.03 5.47a.75.75 0 0 0-1.06 0l-3 3a.75.75 0 1 0 1.06 1.06l1.72-1.72v4.94a.75.75 0 0 0 1.5 0v-4.94l1.72 1.72a.75.75 0 1 0 1.06-1.06l-3-3Z" clip-rule="evenodd" />
+                                        </svg>
+
+                                        Submit
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <button
+                            onClick={closeDialog}
+                            className="mt-5 text-gray-600 underline text-center w-full"
+                        >
+
+                            Cancel
+                        </button>
+                    </Dialog.Panel>
+                </div>
+            </Dialog>
         </div>
-    </>);
+    );
 }

@@ -8,12 +8,18 @@
     "dev": "vite --host",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start-https": "HTTPS=true SSL_CRT_FILE=cert.pem SSL_KEY_FILE=key.pem react-scripts start"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.9",
+    "axios": "^1.13.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.10.1"
+    "react-html5-camera-photo": "^1.5.11",
+    "react-images-uploading": "^3.1.7",
+    "react-router-dom": "^7.10.1",
+    "react-webcam": "^7.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
