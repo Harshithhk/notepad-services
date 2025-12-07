@@ -8,12 +8,30 @@ dotenv.config();
 
 const app = express();
 
-const corsOptions = {
-    origin: true,
-    credentials: true,
-}
 
-app.use(cors(corsOptions));
+app.use(cors());
+
+app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.header(
+        "Access-Control-Allow-Headers",
+        "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    next();
+})
+
+app.use((req, res, next) => {
+
+    const timestamp = new Date().toUTCString()
+    const method = req.method
+    const path = req.path
+
+    console.log(`[${timestamp}]: ${method} ${path}`);
+
+    next()
+});
+
+app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 connectDB();
