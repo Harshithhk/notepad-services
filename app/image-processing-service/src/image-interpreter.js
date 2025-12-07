@@ -17,8 +17,7 @@ function streamToBuffer(stream) {
 }
 
 /**
- * Flatten interpretation JSON → deterministic text
- * (critical for stable embeddings)
+ * Flatten interpretation → text (for embeddings)
  */
 function interpretationToText(interpretation) {
   const parts = [];
@@ -29,14 +28,10 @@ function interpretationToText(interpretation) {
       const status = t.checkbox_checked ? "completed" : "pending";
       parts.push(`- TODO (${status}): ${t.task}`);
     });
-  } else {
-    parts.push("Todo list: none");
   }
 
   if (interpretation.quote_of_the_day) {
     parts.push(`Quote of the day: "${interpretation.quote_of_the_day}"`);
-  } else {
-    parts.push("Quote of the day: none");
   }
 
   if (interpretation.written_and_drawn_notes_summary?.length) {
@@ -55,8 +50,30 @@ function interpretationToText(interpretation) {
 }
 
 /**
- * @param {string} s3ObjectUrl - s3://bucket/key
- * @param {string} noteId     - custom noteId field (NOT Mongo _id)
+ * Generate title + summary from interpretation
+ */
+function deriveTitleAndSummary(interpretation) {
+  const todos = interpretation.todos || [];
+
+  const title =
+    todos.length > 0
+      ? todos
+          .slice(0, 2)
+          .map((t) => t.task)
+          .join(" • ")
+      : "Whiteboard Note";
+
+  const summary =
+    todos.length > 0
+      ? `Whiteboard todo list with ${todos.length} items`
+      : "Whiteboard notes and drawings";
+
+  return { title, summary };
+}
+
+/**
+ * @param {string} s3ObjectUrl
+ * @param {string} noteId   (custom noteId field, NOT Mongo _id)
  */
 export async function interpretImageFromS3(s3ObjectUrl, noteId) {
   if (!s3ObjectUrl) throw new Error("s3ObjectUrl is required");
@@ -96,20 +113,6 @@ Rules:
 - Only output JSON
 - No markdown
 - Response must start with "{"
-
-Schema:
-{
-  "todos": [
-    {
-      "deadline": "string | null | infinity",
-      "task": "string",
-      "checkbox_checked": true | false
-    }
-  ],
-  "quote_of_the_day": "string | null",
-  "written_and_drawn_notes_summary": ["string"],
-  "sticky_notes_summary": ["string"]
-}
 `;
 
   console.log("Calling Claude Vision API...");
@@ -130,10 +133,6 @@ Schema:
               media_type: "image/jpeg",
               data: imageBase64,
             },
-          },
-          {
-            type: "text",
-            text: "Extract structured information from this whiteboard image.",
           },
           {
             type: "text",
@@ -162,15 +161,24 @@ Schema:
   const embeddingText = interpretationToText(parsed);
   const embedding = await getEmbedding(embeddingText, { isQuery: false });
 
-  console.log("Writing interpretation + embedding to MongoDB");
+  const { title, summary } = deriveTitleAndSummary(parsed);
+
+  console.log("Writing interpretation to MongoDB");
 
   const result = await Note.findOneAndUpdate(
-    { noteId }, // ✅ custom field
+    { noteId },
     {
       $set: {
+        title,
+        summary,
         interpretation: parsed,
         interpretationCompleted: true,
         embedding,
+        metadata: {
+          hasTodos: parsed.todos?.length > 0,
+          todoCount: parsed.todos?.length || 0,
+          hasStickyNotes: parsed.sticky_notes_summary?.length > 0,
+        },
       },
     },
     { new: true }
@@ -180,7 +188,10 @@ Schema:
     throw new Error(`Note not found for noteId ${noteId}`);
   }
 
-  console.log("Interpretation completed", { noteId, s3ObjectUrl });
+  console.log("Interpretation completed", {
+    noteId,
+    s3ObjectUrl,
+  });
 
   return {
     noteId,
