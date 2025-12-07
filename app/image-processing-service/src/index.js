@@ -16,7 +16,7 @@ import { interpretImageFromS3 } from "./image-interpreter.js";
  */
 async function main() {
   try {
-    console.log("🔹 Image-processing ECS task started");
+    console.log(" Image-processing ECS task started");
 
     if (!process.env.JOB_PAYLOAD) {
       throw new Error("JOB_PAYLOAD env var is missing");
@@ -35,7 +35,10 @@ async function main() {
     // Run interpreter
     await interpretImageFromS3(s3ObjectUrl, noteId);
 
+    console.log("Closing Mongodb connection");
+    await mongoose.connection.close();
     console.log("Image-processing ECS task completed");
+
     process.exit(0);
   } catch (err) {
     console.error(" Image-processing task failed:", err);

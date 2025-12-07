@@ -14,8 +14,8 @@ function streamToBuffer(stream) {
 }
 
 /**
- * @param {string} s3ObjectUrl - s3://bucket/key
- * @param {string} noteId - Mongo ObjectId
+ * @param {string} s3ObjectUrl
+ * @param {string} noteId
  */
 export async function interpretImageFromS3(s3ObjectUrl, noteId) {
   if (!s3ObjectUrl) {
@@ -26,7 +26,6 @@ export async function interpretImageFromS3(s3ObjectUrl, noteId) {
     throw new Error(`Invalid noteId: ${noteId}`);
   }
 
-  // Parse s3://bucket/key
   const match = s3ObjectUrl.match(/^s3:\/\/([^/]+)\/(.+)$/);
   if (!match) {
     throw new Error("Invalid S3 URL format. Expected s3://bucket/key");
@@ -34,7 +33,7 @@ export async function interpretImageFromS3(s3ObjectUrl, noteId) {
 
   const [, bucket, key] = match;
 
-  console.log("📥 Downloading image from S3:", s3ObjectUrl);
+  console.log("Downloading image from S3:", s3ObjectUrl);
 
   const s3 = new S3Client({});
   const s3Response = await s3.send(
@@ -129,19 +128,27 @@ Schema:
 
   console.log("Writing interpretation to MongoDB");
 
-  await Note.findByIdAndUpdate(
+  const result = await Note.findByIdAndUpdate(
     noteId,
     {
       interpretation: parsed,
       interpretationCompleted: true,
     },
-    { new: true }
+    {
+      new: true,
+      runValidators: true,
+    }
   );
+
+  if (!result) {
+    throw new Error(`Note not found for ID ${noteId}`);
+  }
 
   console.log("Interpretation completed", {
     noteId,
     s3ObjectUrl,
   });
+  
 
   return {
     noteId,
