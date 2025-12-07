@@ -9,6 +9,8 @@ pipeline {
 
     ECS_CLUSTER = "notepad-us-east-1"
     IMAGE_TAG   = "latest"
+
+    IMAGE_PROCESSING_ECR = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/image-processing"
   }
 
   stages {
@@ -73,11 +75,10 @@ pipeline {
               name: "frontend-service",
               path: "app/frontend-service",
               ecr:  "frontend-service",
-            buildArgs: """
-    --build-arg VITE_AUTH_API_URL=https://auth.notepad-minus-minus.harshithkelkar.com \
-    --build-arg VITE_BACKEND_API_URL=https://api.notepad-minus-minus.harshithkelkar.com
-  """.trim()
-
+              buildArgs: """
+                --build-arg VITE_AUTH_API_URL=https://auth.notepad-minus-minus.harshithkelkar.com \
+                --build-arg VITE_BACKEND_API_URL=https://api.notepad-minus-minus.harshithkelkar.com
+              """.trim()
             ]
           ]
 
@@ -86,22 +87,38 @@ pipeline {
             def ecrRepo = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${svc.ecr}"
 
             dir(svc.path) {
-                sh """
+              sh """
                 docker build ${svc.buildArgs ?: ""} -t ${svc.name}:${IMAGE_TAG} .
                 docker tag ${svc.name}:${IMAGE_TAG} ${ecrRepo}:${IMAGE_TAG}
                 docker push ${ecrRepo}:${IMAGE_TAG}
-                """
+              """
             }
 
             sh """
-                aws ecs update-service \
+              aws ecs update-service \
                 --cluster ${ECS_CLUSTER} \
                 --service ${svc.name} \
                 --force-new-deployment \
                 --region ${AWS_REGION}
             """
-            }
+          }
+        }
+      }
+    }
 
+    stage('Build & Push Image-Processing Task') {
+      steps {
+        dir('services/image-processing-service') {
+          sh '''
+            echo "Building image-processing image..."
+            docker build -t image-processing:${IMAGE_TAG} .
+
+            echo "Tagging image..."
+            docker tag image-processing:${IMAGE_TAG} ${IMAGE_PROCESSING_ECR}:${IMAGE_TAG}
+
+            echo "Pushing image to ECR..."
+            docker push ${IMAGE_PROCESSING_ECR}:${IMAGE_TAG}
+          '''
         }
       }
     }
@@ -109,10 +126,10 @@ pipeline {
 
   post {
     success {
-      echo "All services built and deployed successfully!"
+      echo "✅ All services and tasks built successfully!"
     }
     failure {
-      echo "Deployment failed. Check logs."
+      echo "❌ Deployment failed. Check logs."
     }
     always {
       sh "ls -lh ${ARTIFACT_DIR} || true"
