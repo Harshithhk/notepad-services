@@ -12,13 +12,7 @@ const app = express();
 // ⭐ CORS
 app.use(
     cors({
-        origin: [
-            "https://192.168.1.167:5173",
-            "http://192.168.1.167:5173",
-            "https://localhost:5173",
-            "http://localhost:5173"
-
-        ],
+        origin: "*",
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
         credentials: true,
     })
