@@ -5,7 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    stream.on("data", chunk => chunks.push(chunk));
+    stream.on("data", (chunk) => chunks.push(chunk));
     stream.on("error", reject);
     stream.on("end", () => resolve(Buffer.concat(chunks)));
   });
@@ -31,15 +31,15 @@ export async function interpretImageFromS3(s3ObjectUrl) {
   const s3Response = await s3.send(
     new GetObjectCommand({
       Bucket: bucket,
-      Key: key
+      Key: key,
     })
   );
 
   const imageBuffer = await streamToBuffer(s3Response.Body);
   const imageBase64 = imageBuffer.toString("base64");
-
+  console.log("ANTHROPIC KEY ===> ", process.env.ANTHROPIC_API_KEY);
   const client = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY
+    apiKey: process.env.ANTHROPIC_API_KEY,
   });
 
   if (!client.apiKey) {
@@ -83,32 +83,34 @@ Schema:
             source: {
               type: "base64",
               media_type: "image/jpeg", // change if you want to detect from S3 ContentType
-              data: imageBase64
-            }
+              data: imageBase64,
+            },
           },
           {
             type: "text",
-            text: "Extract structured information from this whiteboard image following the given schema."
+            text: "Extract structured information from this whiteboard image following the given schema.",
           },
           {
             type: "text",
-            text: JSON_PROMPT
-          }
-        ]
-      }
-    ]
+            text: JSON_PROMPT,
+          },
+        ],
+      },
+    ],
   });
 
   const raw = claudeResponse.content
-    .filter(part => part.type === "text")
-    .map(part => part.text)
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
     .join("")
     .trim();
 
   const parsed = JSON.parse(raw);
 
+  console.log({ s3_object: s3ObjectUrl, interpretation: parsed });
+
   return {
     s3_object: s3ObjectUrl,
-    interpretation: parsed
+    interpretation: parsed,
   };
 }
