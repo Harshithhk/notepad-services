@@ -41,22 +41,7 @@ app.get("/health", (req, res) => res.send("Service Running"));
 
 const PORT = process.env.PORT || 4001;
 
-if (process.env.USE_HTTPS === "true") {
-  try {
-    const key = fs.readFileSync("./ssl/key.pem");
-    const cert = fs.readFileSync("./ssl/cert.pem");
 
-    https.createServer({ key, cert }, app).listen(PORT, () => {
-      console.log(`HTTPS Backend-Service running on https with port: ${PORT}`);
-    });
-  } catch (error) {
-    console.error("HTTPS certificates missing! Running HTTP fallback.");
-    app.listen(PORT, () =>
-      console.log(`HTTP Backend-Service running on http with port: ${PORT}`)
-    );
-  }
-} else {
   app.listen(PORT, () =>
     console.log(`HTTP Backend-Service running on http with port: ${PORT}`)
-  );
-}
+  )
