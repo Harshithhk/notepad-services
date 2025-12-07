@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext } from "react";
+import React, { useState, useRef, useContext, useEffect } from "react";
 import Webcam from "react-webcam";
 import axios from "axios";
 import { Dialog } from "@headlessui/react";
@@ -11,6 +11,7 @@ export default function Dashboard() {
     const [mode, setMode] = useState(null);
     const [image, setImage] = useState(null);
     const webcamRef = useRef(null);
+    const [notes, setNotes] = useState([]);
 
     const { user, setUser, logout } = useContext(AuthContext);
 
@@ -56,6 +57,18 @@ export default function Dashboard() {
     };
 
 
+    const fetchNotes = async () => {
+        try {
+            const res = await noteService.getNotesByUser(user._id);
+            setNotes(res);
+        } catch (err) {
+            console.error("Failed to fetch notes:", err);
+        }
+    };
+
+    useEffect(() => {
+        if (user?._id) fetchNotes();
+    }, [user])
 
     const closeDialog = () => {
         setIsOpen(false);
@@ -181,6 +194,26 @@ export default function Dashboard() {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {notes.length > 0 ? (
+                    notes.map((note) => (
+                        <div key={note._id} className="border rounded-lg p-4 shadow-sm">
+                            <img
+                                src={note.imageUrl}
+                                alt={note.title || "note"}
+                                className="w-full h-48 object-cover rounded-md mb-2"
+                            />
+                            <h2 className="font-bold text-lg mb-1">{note.title || "Untitled"}</h2>
+                            <p className="text-gray-600 text-sm">{note.summary || "No summary"}</p>
+                        </div>
+                    ))
+                ) : (
+                    <p className="col-span-full text-center text-gray-500">
+                        No notes found. Capture or upload a note to get started!
+                    </p>
+                )}
             </div>
 
             <Dialog open={isOpen} onClose={closeDialog} className="relative z-50">

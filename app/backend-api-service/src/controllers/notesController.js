@@ -1,4 +1,5 @@
 import Note from "../models/notes.js";
+import { publishToSQS } from "../services/sqsService.js";
 
 
 const createNote = async (req, res) => {
@@ -17,6 +18,9 @@ const createNote = async (req, res) => {
             summary,
             metadata
         });
+
+        await publishToSQS({ noteId: note._id.toString(), imageUrl: note.imageUrl });
+
 
         return res.status(201).json(note);
     } catch (error) {
