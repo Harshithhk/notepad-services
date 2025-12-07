@@ -108,7 +108,7 @@ pipeline {
 
     stage('Build & Push Image-Processing Task') {
       steps {
-        dir('services/image-processing-service') {
+        dir('app/image-processing-service') {
           sh '''
             echo "Building image-processing image..."
             docker build -t image-processing:${IMAGE_TAG} .
