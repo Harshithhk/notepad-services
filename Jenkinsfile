@@ -54,14 +54,20 @@ pipeline {
       }
     }
 
-    stage('Build, Push & Deploy Services') {
+    stage('Build, Push & Deploy ECS Services') {
       steps {
         script {
+
           def services = [
             [
               name: "auth-service",
               path: "app/auth-service",
               ecr:  "auth-service"
+            ],
+            [
+              name: "backend-api",
+              path: "app/backend-api-service",
+              ecr:  "backend-api"
             ],
             [
               name: "frontend-service",
@@ -74,7 +80,7 @@ pipeline {
 
             def ecrRepo = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${svc.ecr}"
 
-            echo "🚀 Deploying ${svc.name}"
+            echo "Deploying ${svc.name}"
 
             dir(svc.path) {
               sh """
@@ -91,6 +97,8 @@ pipeline {
                 --force-new-deployment \
                 --region ${AWS_REGION}
             """
+
+            echo "Deployment triggered for ${svc.name}"
           }
         }
       }
