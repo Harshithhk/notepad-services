@@ -1,15 +1,19 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useContext } from "react";
 import Webcam from "react-webcam";
 import axios from "axios";
 import { Dialog } from "@headlessui/react";
 import mainLogo from '../assets/logo.png'
 import { noteService } from "../services/noteService";
+import { AuthContext } from "../context/AuthContext";
 
 export default function Dashboard() {
     const [isOpen, setIsOpen] = useState(false);
     const [mode, setMode] = useState(null);
     const [image, setImage] = useState(null);
     const webcamRef = useRef(null);
+
+    const { user, setUser, logout } = useContext(AuthContext);
+
 
     const handleCapture = () => {
         const imageSrc = webcamRef.current.getScreenshot();
@@ -27,10 +31,21 @@ export default function Dashboard() {
 
     const handleUploadImageTos3 = async () => {
         try {
-            const res = await noteService.uploadImageToS3(image);
+            const uploadRes = await noteService.uploadImageToS3(image);
 
-            console.log("Uploaded:", res.fileUrl);
-            alert("Uploaded Successfully!");
+            if (!uploadRes.success) {
+                alert("Image upload failed.");
+                return;
+            }
+
+            const fileUrl = uploadRes.fileUrl;
+
+            const newNote = await noteService.createNote({
+                userId: user._id,
+                imageUrl: fileUrl
+            });
+
+            alert("Image uploaded & note saved!");
 
             setIsOpen(false);
             setImage(null);

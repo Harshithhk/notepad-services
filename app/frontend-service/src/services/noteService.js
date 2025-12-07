@@ -9,12 +9,9 @@ export const noteService = {
         }
 
         try {
-            // 1️ Convert base64 → Blob
             const blob = await fetch(base64Image).then((res) => res.blob());
-            console.log(blob.type);
-            // 2️ Get presigned URL from backend
             const presignRes = await axios.put(
-                `${API_URL}/api/presigned-url`, // backend endpoint
+                `${API_URL}/api/presigned-url`,
                 {
                     fileType: blob.type || "image/jpeg"
                 }
@@ -22,14 +19,12 @@ export const noteService = {
 
             const { uploadUrl, fileUrl } = presignRes.data;
 
-            // 3️ Upload directly to S3
-            // await axios.put(uploadUrl, blob, {
-            //     headers: {
-            //         "Content-Type": blob.type
-            //     }
-            // });
+            await axios.put(uploadUrl, blob, {
+                headers: {
+                    "Content-Type": blob.type
+                }
+            });
 
-            await fetch(uploadUrl, { method: "PUT", body: blob })
 
             return {
                 success: true,
@@ -38,6 +33,65 @@ export const noteService = {
         } catch (error) {
             console.error("Upload Error:", error);
             throw new Error("Image upload failed");
+        }
+    },
+    createNote: async (data) => {
+        try {
+            const res = await axios.post(`${API_URL}/api/notes`, data);
+            return res.data;
+        } catch (error) {
+            console.error("Create Note Error:", error);
+            throw new Error("Failed to create note");
+        }
+    },
+    getNotesByUser: async (userId) => {
+        try {
+            const res = await axios.get(`${API_URL}/api/notes/user/${userId}`);
+            return res.data;
+        } catch (error) {
+            console.error("Get Notes Error:", error);
+            throw new Error("Failed to fetch notes");
+        }
+    },
+    getNoteById: async (noteId) => {
+        try {
+            const res = await axios.get(`${API_URL}/api/notes/${noteId}`);
+            return res.data;
+        } catch (error) {
+            console.error("Get Note Error:", error);
+            throw new Error("Failed to fetch note");
+        }
+    },
+    updateNote: async (noteId, updateData) => {
+        try {
+            const res = await axios.put(
+                `${API_URL}/api/notes/${noteId}`,
+                updateData
+            );
+            return res.data;
+        } catch (error) {
+            console.error("Update Note Error:", error);
+            throw new Error("Failed to update note");
+        }
+    },
+    markInterpretationCompleted: async (noteId) => {
+        try {
+            const res = await axios.patch(
+                `${API_URL}/api/notes/${noteId}/complete`
+            );
+            return res.data;
+        } catch (error) {
+            console.error("Interpretation Update Error:", error);
+            throw new Error("Failed to update interpretation status");
+        }
+    },
+    deleteNote: async (noteId) => {
+        try {
+            const res = await axios.delete(`${API_URL}/api/notes/${noteId}`);
+            return res.data;
+        } catch (error) {
+            console.error("Delete Note Error:", error);
+            throw new Error("Failed to delete note");
         }
     }
 };
