@@ -3,16 +3,16 @@ import { interpretImageFromS3 } from "./image-interpreter.js";
 
 async function main() {
   try {
-    const raw = process.env.JOB_PAYLOAD;
-    if (!raw) {
-      throw new Error("Missing JOB_PAYLOAD environment variable.");
+    const rawPayload = process.env.JOB_PAYLOAD;
+    if (!rawPayload) {
+      throw new Error("Missing JOB_PAYLOAD environment variable");
     }
 
     let payload;
     try {
-      payload = JSON.parse(raw);
-    } catch {
-      throw new Error("JOB_PAYLOAD is not valid JSON.");
+      payload = JSON.parse(rawPayload);
+    } catch (err) {
+      throw new Error("JOB_PAYLOAD is not valid JSON");
     }
 
     const { imageUrl, noteId } = payload;
@@ -28,11 +28,12 @@ async function main() {
       ...result
     };
 
+    // Single clean JSON object to CloudWatch
     console.log(JSON.stringify(output, null, 2));
-    process.exit(0);
 
+    process.exit(0);
   } catch (err) {
-    console.error(err);
+    console.error("Worker failed:", err.message || err);
     process.exit(1);
   }
 }

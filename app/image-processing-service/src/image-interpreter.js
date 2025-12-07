@@ -5,34 +5,46 @@ import Anthropic from "@anthropic-ai/sdk";
 function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    stream.on("data", (chunk) => chunks.push(chunk));
+    stream.on("data", chunk => chunks.push(chunk));
     stream.on("error", reject);
     stream.on("end", () => resolve(Buffer.concat(chunks)));
   });
 }
 
+/**
+ * s3ObjectUrl: string like "s3://bucket/key"
+ */
 export async function interpretImageFromS3(s3ObjectUrl) {
+  if (!s3ObjectUrl) {
+    throw new Error("s3ObjectUrl is required");
+  }
+
   const match = s3ObjectUrl.match(/^s3:\/\/([^/]+)\/(.+)$/);
   if (!match) {
-    throw new Error("Invalid S3 URL format. Expected: s3://bucket/key");
+    throw new Error("Invalid S3 URL format. Expected s3://bucket/key");
   }
 
   const [, bucket, key] = match;
 
-  const s3 = new S3Client({
-    region: process.env.AWS_REGION || "us-east-1"
-  });
+  const s3 = new S3Client({}); // region comes from AWS env/metadata in ECS
 
-  const response = await s3.send(
-    new GetObjectCommand({ Bucket: bucket, Key: key })
+  const s3Response = await s3.send(
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key
+    })
   );
 
-  const buffer = await streamToBuffer(response.Body);
-  const imageBase64 = buffer.toString("base64");
+  const imageBuffer = await streamToBuffer(s3Response.Body);
+  const imageBase64 = imageBuffer.toString("base64");
 
   const client = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY
   });
+
+  if (!client.apiKey) {
+    throw new Error("ANTHROPIC_API_KEY is not set");
+  }
 
   const MODEL_ID = "claude-sonnet-4-20250514";
 
@@ -70,13 +82,13 @@ Schema:
             type: "image",
             source: {
               type: "base64",
-              media_type: "image/jpeg",
+              media_type: "image/jpeg", // change if you want to detect from S3 ContentType
               data: imageBase64
             }
           },
           {
             type: "text",
-            text: "Extract all useful structured information from this image. Follow the schema."
+            text: "Extract structured information from this whiteboard image following the given schema."
           },
           {
             type: "text",
@@ -88,8 +100,8 @@ Schema:
   });
 
   const raw = claudeResponse.content
-    .filter((c) => c.type === "text")
-    .map((c) => c.text)
+    .filter(part => part.type === "text")
+    .map(part => part.text)
     .join("")
     .trim();
 
