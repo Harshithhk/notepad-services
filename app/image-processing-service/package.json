@@ -12,11 +12,11 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "@aws-sdk/client-s3": "^3.946.0",
     "aws-sdk": "^2.1450.0",
-    "dotenv": "^16.3.1",
     "axios": "^1.4.0",
-    "@aws-sdk/client-s3": "^3.x",
-    "@anthropic-ai/sdk": "^0.x"
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
