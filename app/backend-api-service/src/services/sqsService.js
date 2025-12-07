@@ -4,7 +4,7 @@ const sqs = new AWS.SQS({ region: "us-east-1" });
 // const QUEUE_URL = process.env.SQS_QUEUE_URL;
 // TODO replace with env
 const QUEUE_URL =
-  "SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/831347845050/image-processing-queue";
+  "https://sqs.us-east-1.amazonaws.com/831347845050/image-processing-queue";
 
 export const publishToSQS = async (note) => {
   const params = {
