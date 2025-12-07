@@ -9,7 +9,7 @@ import fs from "node:fs";
 dotenv.config();
 const app = express();
 
-// ⭐ CORS
+// CORS
 app.use(
     cors({
         origin: "*",
@@ -18,7 +18,7 @@ app.use(
     })
 );
 
-// ⭐ Request logging
+// Request logging
 app.use((req, res, next) => {
     const timestamp = new Date().toUTCString();
     console.log(`[${timestamp}] ${req.method} ${req.path}`);
