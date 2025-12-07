@@ -1,41 +1,44 @@
 // src/index.js
+import dotenv from "dotenv";
+dotenv.config();
+
+import mongoose from "mongoose";
 import dbConnect from "./config/db.js";
 import { interpretImageFromS3 } from "./image-interpreter.js";
 
+/**
+ * JOB_PAYLOAD is injected by Lambda when running the ECS task.
+ * Example:
+ * {
+ *   "noteId": "6934d6407b2d758386cf7483",
+ *   "s3ObjectUrl": "s3://bucket/key.jpg"
+ * }
+ */
 async function main() {
   try {
-    const rawPayload = process.env.JOB_PAYLOAD;
-    if (!rawPayload) {
-      throw new Error("Missing JOB_PAYLOAD environment variable");
+    console.log("🔹 Image-processing ECS task started");
+
+    if (!process.env.JOB_PAYLOAD) {
+      throw new Error("JOB_PAYLOAD env var is missing");
     }
 
-    let payload;
-    try {
-      payload = JSON.parse(rawPayload);
-    } catch (err) {
-      throw new Error("JOB_PAYLOAD is not valid JSON");
+    const payload = JSON.parse(process.env.JOB_PAYLOAD);
+    const { noteId, s3ObjectUrl } = payload;
+
+    if (!noteId || !s3ObjectUrl) {
+      throw new Error("JOB_PAYLOAD must contain noteId and s3ObjectUrl");
     }
 
-    const { imageUrl, noteId } = payload;
-
-    if (!imageUrl) {
-      throw new Error("Payload missing required field: imageUrl");
-    }
+    // Connect to Mongo ONCE per container
     await dbConnect();
 
-    const result = await interpretImageFromS3(imageUrl, noteId);
+    // Run interpreter
+    await interpretImageFromS3(s3ObjectUrl, noteId);
 
-    const output = {
-      noteId: noteId || null,
-      ...result,
-    };
-
-    // Single clean JSON object to CloudWatch
-    console.log(JSON.stringify(output, null, 2));
-
+    console.log("Image-processing ECS task completed");
     process.exit(0);
   } catch (err) {
-    console.error("Worker failed:", err.message || err);
+    console.error(" Image-processing task failed:", err);
     process.exit(1);
   }
 }
