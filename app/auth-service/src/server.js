@@ -13,6 +13,9 @@ const app = express();
 app.use(
     cors({
         origin: [
+                        "https://192.168.1.175:5173",
+            "http://192.168.1.175:5173",
+
             "https://192.168.1.167:5173",
             "http://192.168.1.167:5173",
             "https://localhost:5173",

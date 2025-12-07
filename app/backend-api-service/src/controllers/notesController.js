@@ -128,21 +128,21 @@ const searchNotesRag = async (req, res) => {
 
     if (!query) return res.status(400).json({ error: "query is required" });
 
-    console.log(req.body)
+    console.log("userId:", userId);
+    console.log("body:", req.body);
 
-    // const results = await ragSearchNotes({
-    //   userId,
-    //   query,
-    //   cosineK: cosineK ?? 30,
-    //   finalK: finalK ?? 10,
-    // });
-
-    // return res.status(200).json({ results });
+    // TEMP response for Postman testing
+    return res.status(200).json({
+      ok: true,
+      userId,
+      received: { query, cosineK, finalK }
+    });
   } catch (err) {
     console.error("RAG search error:", err);
     return res.status(500).json({ error: "Failed to search notes" });
   }
-}
+};
+
 
 export {
     createNote,
