@@ -60,15 +60,14 @@ pipeline {
           def services = [
             [
               name: "auth-service",
-              path: "auth-service",
+              path: "app/auth-service",
               ecr:  "auth-service"
             ],
             [
               name: "frontend-service",
-              path: "frontend-service",
+              path: "app/frontend-service",
               ecr:  "frontend-service"
             ]
-          
           ]
 
           services.each { svc ->
