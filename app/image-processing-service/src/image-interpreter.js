@@ -3,6 +3,7 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import Anthropic from "@anthropic-ai/sdk";
 import mongoose from "mongoose";
 import Note from "./models/notes.js";
+import { getEmbedding } from "./encoder.js";
 
 function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
@@ -128,7 +129,13 @@ Schema:
     throw new Error("Claude JSON parsing failed");
   }
 
+  console.log("encoding interpretation");
+
+  let embedding = await getEmbedding(JSON.stringify(parsed))
+
+
   console.log("Writing interpretation to MongoDB");
+
 
   const result = await Note.findByIdAndUpdate(
     noteId,
@@ -137,6 +144,7 @@ Schema:
       summary: parsed.summary || "",
       interpretation: parsed,
       interpretationCompleted: true,
+      embedding: embedding
     },
     {
       new: true,
