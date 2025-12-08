@@ -67,6 +67,8 @@ Rules:
 
 Schema:
 {
+"title": "string" || ai generated title,
+"summary" : "string" ||"overall summary",
   "todos": [
     {
       "deadline": "string | null | infinity",
@@ -131,6 +133,8 @@ Schema:
   const result = await Note.findByIdAndUpdate(
     noteId,
     {
+      title: parsed.title || "",
+      summary: parsed.summary || "",
       interpretation: parsed,
       interpretationCompleted: true,
     },
